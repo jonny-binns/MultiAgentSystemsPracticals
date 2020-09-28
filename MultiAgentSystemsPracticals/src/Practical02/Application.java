@@ -18,8 +18,10 @@ public class Application {
 			AgentController rma = myContainer.createNewAgent("rma", "jade.tools.rma.rma", null);
 			rma.start();
 			
+			//create a book for the agent to look for
+			String[] books = {"Java for dummies"};
 			//now start our own BookBuyerAgent, called buyer
-			AgentController myAgent = myContainer.createNewAgent("Buyer", BookBuyerAgent.class.getCanonicalName(), null);
+			AgentController myAgent = myContainer.createNewAgent("Buyer", BookBuyerAgent.class.getCanonicalName(), books);
 			myAgent.start();	
 		}
 		catch (Exception e)
