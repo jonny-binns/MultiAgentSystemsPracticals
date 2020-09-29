@@ -19,10 +19,15 @@ public class Application {
 			rma.start();
 			
 			//create a book for the agent to look for
-			String[] books = {"Java for dummies"};
+			//String[] books = {"Java for dummies"};
 			//now start our own BookBuyerAgent, called buyer
-			AgentController myAgent = myContainer.createNewAgent("Buyer", BookBuyerAgent.class.getCanonicalName(), books);
-			myAgent.start();	
+			//AgentController buyerAgent = myContainer.createNewAgent("Buyer", BookBuyerAgent.class.getCanonicalName(), books);
+			//buyerAgent.start();	
+			
+			//create a BookSellerAgent
+			AgentController sellerAgent = myContainer.createNewAgent("SellerA", BookSellerAgent.class.getCanonicalName(), null);
+			sellerAgent.start();
+			
 		}
 		catch (Exception e)
 		{

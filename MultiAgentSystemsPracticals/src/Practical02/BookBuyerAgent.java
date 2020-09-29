@@ -2,13 +2,18 @@ package Practical02;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.*;
+import jade.domain.DFService;
+import jade.domain.FIPAException;
+import jade.domain.FIPAAgentManagement.DFAgentDescription;
+import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
 public class BookBuyerAgent extends Agent {
 	//the title of the book to buy
 	private String targetBookTitle;
-	private AID[] sellerAgents = {new AID("seller1", AID.ISLOCALNAME), new AID("seller2", AID.ISLOCALNAME)};
+	//list of all known seller agents
+	private AID[] sellerAgents;
 	
 	//put agent initializations here
 	protected void setup() {
@@ -22,9 +27,30 @@ public class BookBuyerAgent extends Agent {
 			targetBookTitle = (String) args[0];
 			System.out.println("Trying to buy " + targetBookTitle);
 			
-			//add a TickerBehaviour that schedules a request to seller agents every minute
-			addBehaviour(new TickerBehaviour(this, 60000) {
+			//add a TickerBehaviour that schedules a request to seller agents every 5 seconds
+			addBehaviour(new TickerBehaviour(this, 5000) {
 				protected void onTick() {
+					//update the list of seller agents
+					DFAgentDescription template = new DFAgentDescription();
+					ServiceDescription sd = new ServiceDescription();
+					sd.setType("book-selling");
+					template.addServices(sd);
+					try 
+					{
+						DFAgentDescription[] result = DFService.search(myAgent, template);
+						sellerAgents = new AID[result.length];
+						
+						for (int i=0; i<result.length; ++i) 
+						{
+							sellerAgents[i] = result[i].getName();
+						}
+					}
+					catch (FIPAException fe) 
+					{
+						fe.printStackTrace();
+					}
+					System.out.println("Checking...");
+					//perform the request
 					myAgent.addBehaviour(new RequestPerformer());
 				}
 			});
