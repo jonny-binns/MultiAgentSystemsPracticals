@@ -1,37 +1,32 @@
 package Practical03;
 
-import java.util.*;
+import java.util.Hashtable;
+
+import jade.core.AID;
 import jade.core.Agent;
-import jade.core.behaviours.*;
+import jade.core.behaviours.Behaviour;
+import jade.core.behaviours.OneShotBehaviour;
+import jade.core.behaviours.TickerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
-import jade.domain.FIPAAgentManagement.*;
+import jade.domain.FIPAAgentManagement.DFAgentDescription;
+import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
 
+
 public class Auctioneer extends Agent {
-	//catalogue of things for sale
+	//catalogue of items to be sold
 	private Hashtable catalogue;
+	//list of bidderAgents
+	private AID[] bidderAgents;
 	
-	//Agent initialisation
+	
+	//put agent initialisation here
 	protected void setup() 
 	{
-		//create the new catalogue
-		catalogue = new Hashtable();
-		
-		//add product to catalogue
-		Object[] args = getArguments();
-		String title = (String) args[0];
-		updateCatalogue(title);
-		
-		//add behaviour serving bids from bidders
-		addBehaviour(new OfferRequestsServer());
-		
-		//add behaviour for serving puchase orders
-		addBehaviour(new PurchaseOrdersServer());
-		
-		//register the auctioneer in the DF Agent
+		//Register the auctioneer with the DFAgent
 		DFAgentDescription dfd = new DFAgentDescription();
 		dfd.setName(getAID());
 		ServiceDescription sd = new ServiceDescription();
@@ -48,15 +43,49 @@ public class Auctioneer extends Agent {
 		}
 		
 		//print out a welcome message
-		System.out.println("Auctioneer " + getAID().getName() + " has started");
+		System.out.println("Auctioneer " + getAID().getName() + " is ready");
+		
+		//create new catalouge
+		catalogue = new Hashtable();
+		//add test item to catalogue
+		String prodName = "test";
+		int startPrice = 10;
+		addToCatalogue(prodName, startPrice);
+		
+		//add TickerBehaviour to look for bidders
+		addBehaviour(new TickerBehaviour(this, 5000) {
+			protected void onTick() {
+				//update the list of bidderAgents
+				DFAgentDescription template = new DFAgentDescription();
+				ServiceDescription sd = new ServiceDescription();
+				sd.setType("bidder");
+				template.addServices(sd);
+				try
+				{
+					DFAgentDescription[] result = DFService.search(myAgent, template);
+						bidderAgents = new AID[result.length];
+					
+					for (int i=0; i<result.length; ++i)
+					{
+						bidderAgents[i] = result[i].getName();
+					}
+					
+				}
+				catch (FIPAException fe)
+				{
+					fe.printStackTrace();
+				}
+			}
+		});
+		addBehaviour(new RequestPerformer());
 	}
 	
 	
-	//agent clean up operations
+	//clean up operations
 	protected void takeDown()
 	{
 		//deregister from DFAgent
-		try
+		try 
 		{
 			DFService.deregister(this);
 		}
@@ -65,99 +94,121 @@ public class Auctioneer extends Agent {
 			fe.printStackTrace();
 		}
 		
-		//print out a dismissal message 
+		//print dismissal message
 		System.out.println("Auctioneer " + getAID().getName() + " is terminating");
 	}
 	
-	//update catalogue method
-	public void updateCatalogue(final String title)
+	//method to add product to catalogue
+	public void addToCatalogue(final String title, final int startPrice) 
 	{
 		addBehaviour(new OneShotBehaviour() {
 			@Override
-			public void action() 
-			{
-				catalogue.put(title, new Integer(0));
-				System.out.println("Catalogue Updated:");
+			public void action () {
+				catalogue.put(new String(title), new Integer(startPrice));
 				System.out.println(catalogue.toString());
 			}
 		});
 	}
 	
-	
-	//offer requests server
-	private class OfferRequestsServer extends CyclicBehaviour
+	private class RequestPerformer extends Behaviour 
 	{
-		@Override
-		public void action()
-		{
-			MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.CFP);
-			ACLMessage msg = myAgent.receive(mt);
-			
-			if(msg != null)
-			{
-				//cfp message received
-				String title = msg.getContent();
-				ACLMessage reply = msg.createReply();
-				
-				//this will need to be changed to compare bids
-				Integer price = (Integer) catalogue.get(title);
-				if(price != null)
-				{
-					//the requested item is available for sale, reply with price
-					reply.setPerformative(ACLMessage.PROPOSE);
-					reply.setContent(String.valueOf(price.intValue()));
-				}
-				else
-				{
-					//the requested item is not available for sale
-					reply.setPerformative(ACLMessage.REFUSE);
-					reply.setContent("not-available");
-				}
-				
-				myAgent.send(reply);
-			}
-			else
-			{
-				block();
-			}
-		}
-	}
-	
-	//purchase orders server
-	private class PurchaseOrdersServer extends CyclicBehaviour
-	{
-		@Override
+		private MessageTemplate mt;
+		private int step = 0;
+		private AID bestBidder;
+		private int bestPrice;
+		private int repliesCnt = 0;
+		
 		public void action() 
 		{
-			MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL);
-			ACLMessage msg = myAgent.receive(mt);
-			
-			if (msg != null)
+			switch(step)
 			{
-				//accept_proposal message recieved
-				String title = msg.getContent();
-				ACLMessage reply = msg.createReply();
-				Integer price = (Integer) catalogue.remove(title);
-				if (price != null)
-				{
-					reply.setPerformative(ACLMessage.INFORM);
-					System.out.println(title + " sold to agent " + msg.getSender().getName() + " for " + price);
-				}
-				else
-				{
-					//the requested item has been sold to another buyer in the meantime
-					reply.setPerformative(ACLMessage.FAILURE);
-					reply.setContent("not-available");
-				}
-				
-				myAgent.send(reply);
-			}
-			else
-			{
-				block();
+				case 0:
+					//send the cfp to all bidders
+					ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
+					for(int i = 0; i < bidderAgents.length; ++i)
+					{
+						cfp.addReceiver(bidderAgents[i]);
+					}
+					cfp.setContent("test");
+					cfp.setConversationId("auction");
+					cfp.setReplyWith("cfp" + System.currentTimeMillis()); //unique value
+					myAgent.send(cfp);
+					//prepare the template to get proposals
+					mt = MessageTemplate.and(MessageTemplate.MatchConversationId("auction"), MessageTemplate.MatchInReplyTo(cfp.getReplyWith()));
+					step = 1;
+					break;
+				case 1:
+					//recieve all proposals/refusals from seller agents
+					ACLMessage reply = myAgent.receive(mt);
+					if(reply != null)
+					{
+						//reply recieved
+						if(reply.getPerformative() == ACLMessage.PROPOSE)
+						{
+							if (reply.getPerformative() == ACLMessage.PROPOSE)
+							{
+								//this is an offer
+								int price = Integer.parseInt(reply.getContent());
+								if(bestBidder == null || price > bestPrice)
+								{
+									//this is the best offer at present
+									bestPrice = price;
+									bestBidder = reply.getSender();
+								}
+							}
+							repliesCnt++;
+							if (repliesCnt >= bidderAgents.length)
+							{
+								//we have recieved all replies
+								step = 2;
+							}
+						}
+					}
+					else
+					{
+						block();
+					}
+					break;
+				case 2:
+					//send the purchase order to the seller that provided the best offer
+					ACLMessage order = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
+					order.addReceiver(bestBidder);
+					order.setContent("test");
+					order.setConversationId("auction");
+					order.setReplyWith("order" + System.currentTimeMillis());
+					myAgent.send(order);
+					//prepare the template to get purchase order reply
+					mt = MessageTemplate.and(MessageTemplate.MatchConversationId("auction"), MessageTemplate.MatchInReplyTo(order.getReplyWith()));
+					step = 3;
+					break;
+				case 3:
+					//recieve the purchase order reply
+					reply = myAgent.receive(mt);
+					if (reply != null)
+					{
+						//Receive the purchase order reply 
+						reply = myAgent.receive(mt);
+						if (reply != null)
+						{
+							//purchase successful we can terminate
+							System.out.println("Test" + " successfully purchased");
+							System.out.println("Price = " + bestPrice);
+							myAgent.doDelete();
+						}
+						step = 4;
+					}
+					else
+					{
+						block();
+					}
+					break;					
 			}
 		}
+		
+		public boolean done()
+		{
+			return ((step == 2 && bestBidder == null) || step == 4);
+		}
 	}
-	
 	
 }
