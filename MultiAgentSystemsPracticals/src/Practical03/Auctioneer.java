@@ -68,6 +68,7 @@ public class Auctioneer extends Agent {
 					for (int i=0; i<result.length; ++i)
 					{
 						bidderAgents[i] = result[i].getName();
+						System.out.println(bidderAgents[i]);
 					}
 					
 				}

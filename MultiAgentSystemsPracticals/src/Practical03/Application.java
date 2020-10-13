@@ -21,16 +21,16 @@ public class Application {
 			rma.start();
 			
 			//start an auctioneer agent
-			AgentController auctioneerAgent = myContainer.createNewAgent("auctioneer", Auctioneer.class.getCanonicalName(), null);
-			auctioneerAgent.start();
+			//AgentController auctioneerAgent = myContainer.createNewAgent("auctioneer", Auctioneer.class.getCanonicalName(), null);
+			//auctioneerAgent.start();
 			
 			//start a bidder agent
 			AgentController bidderAgent = myContainer.createNewAgent("bidder", Bidder.class.getCanonicalName(), null);
 			bidderAgent.start();
 			
 			//start a bidder agent
-			AgentController bidderAgent2 = myContainer.createNewAgent("bidder2", Bidder.class.getCanonicalName(), null);
-			bidderAgent2.start();
+			//AgentController bidderAgent2 = myContainer.createNewAgent("bidder2", Bidder.class.getCanonicalName(), null);
+			//bidderAgent2.start();
 		}
 		catch (Exception e)
 		{
