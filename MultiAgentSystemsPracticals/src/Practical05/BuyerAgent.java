@@ -1,7 +1,8 @@
-package Practical5;
+package Practical05;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Random;
 
 import jade.core.AID;
 import jade.core.Agent;
@@ -80,6 +81,7 @@ public class BuyerAgent extends Agent {
 					dailyActivity.addSubBehaviour(new FindSellers(myAgent));
 					dailyActivity.addSubBehaviour(new SendEnquiries(myAgent));
 					dailyActivity.addSubBehaviour(new CollectOffers(myAgent));
+					//dailyActivity.addSubBehaviour(new ReplyOffers(myAgent));
 					dailyActivity.addSubBehaviour(new EndDay(myAgent));
 					myAgent.addBehaviour(dailyActivity);
 				}
@@ -216,6 +218,39 @@ public class BuyerAgent extends Agent {
 
 	}
 	
+	
+	public class ReplyOffers extends OneShotBehaviour {
+		
+		public ReplyOffers(Agent a) {
+			super(a);
+		}
+		
+		@Override
+		public void action() {	
+			for(String book : booksToBuy)
+			{
+				if(currentOffers.get(book) != null)
+				{
+					ArrayList<Offer> offers = currentOffers.get(book);
+					for(Offer o : offers) 
+					{
+						Random rand = new Random();
+						int randInt = rand.nextInt(1);
+						//send the purchase order to the seller that provided the best offer
+						ACLMessage acceptMessage = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
+						acceptMessage.addReceiver(o.getSeller());
+						acceptMessage.setConversationId(book);
+						myAgent.send(acceptMessage);
+						System.out.println(book + " bought for " + o.getPrice());
+					}
+				}
+				else
+				{
+					System.out.println(book + " was not bought");
+				}
+			}
+		}
+	}
 	
 	
 	public class EndDay extends OneShotBehaviour {

@@ -1,4 +1,4 @@
-package Practical5;
+package Practical05;
 
 import java.util.ArrayList;
 
@@ -30,7 +30,8 @@ public class BuyerSellerTicker extends Agent {
 			e.printStackTrace();
 		}
 		//wait for the other agents to start
-		doWait(30000);
+		//doWait(30000);
+		doWait(5000);
 		addBehaviour(new SynchAgentsBehaviour(this));
 	}
 

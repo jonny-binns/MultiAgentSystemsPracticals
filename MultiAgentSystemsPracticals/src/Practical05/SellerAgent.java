@@ -1,4 +1,4 @@
-package Practical5;
+package Practical05;
 
 import java.util.ArrayList;
 import java.util.HashMap;
